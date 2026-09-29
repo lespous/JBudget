@@ -1,0 +1,7 @@
+[
+  {"field": "counterparty", "pattern": "BE00123456789012", "category": "Épargne", "priority": 150},
+  {"field": "label", "pattern": "Epargne enfant", "category": "Épargne", "direction": "out", "priority": 150},
+  {"pattern": "JEAN DUPONT", "category": "Argent de poche"},
+  {"pattern": "MON EMPLOYEUR", "category": "Rentrées", "direction": "in"},
+  {"pattern": "^BOULANGERIE DU COIN", "category": "Boulangerie & pâtisserie"}
+]

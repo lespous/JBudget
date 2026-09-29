@@ -1,0 +1,25 @@
+{% if errors %}
+  {% for e in errors %}<span class="neg small">{{ e }}</span>{% endfor %}
+{% else %}
+  <div class="small">
+    <b>{{ matches|length }}</b> transaction{{ 's' if matches|length != 1 }} correspondent.
+    {% if changing %} <b>{{ changing }}</b> changeront de catégorie.{% endif %}
+    {% if locked %} {{ locked }} corrigée{{ 's' if locked > 1 }} à la main ne bougeront pas.{% endif %}
+    {% if others %} <span class="muted">{{ others }} sont aujourd'hui classées par une autre règle : la priorité décidera.</span>{% endif %}
+  </div>
+  {% if matches %}
+  <div class="tbl">
+  <table>
+    <thead><tr><th>Date</th><th>Marchand</th><th>Catégorie actuelle</th><th class="r">Montant</th></tr></thead>
+    <tbody>
+    {% for t in matches[:15] %}
+      <tr><td class="num">{{ t.date.strftime('%d/%m/%y') }}</td><td>{{ t.merchant }}</td>
+        <td>{{ t.category.name if t.category else '—' }}{% if t.locked %} <span class="muted">(manuel)</span>{% endif %}</td>
+        <td class="r num {{ 'neg' if t.amount_cents < 0 else 'pos' }}">{{ t.amount_cents|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if matches|length > 15 %}<span class="muted small">… et {{ matches|length - 15 }} autres.</span>{% endif %}
+  {% endif %}
+{% endif %}

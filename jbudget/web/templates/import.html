@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block content %}
+<h1>Importer des relevés</h1>
+
+<form class="drop" id="drop" method="post" enctype="multipart/form-data" action="{{ url_for('import_upload') }}">
+  <strong>Dépose ici l'export CSV ING et/ou le relevé VISA en PDF</strong>
+  <span class="muted small">Plusieurs fichiers à la fois. Les lignes déjà importées sont reconnues et ignorées.</span>
+  <input type="file" id="files" name="files" accept=".csv,.pdf" multiple required>
+  <button class="primary" type="submit">Importer</button>
+</form>
+
+{% if results %}
+<section class="panel">
+  <h2>Résultat</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Fichier</th><th class="r">Ajoutées</th><th class="r">Doublons ignorés</th><th class="r">À classer</th></tr></thead>
+    <tbody>{% for r in results %}
+      <tr><td>{{ r.filename }}</td><td class="r num">{{ r.added }}</td><td class="r num">{{ r.skipped }}</td>
+        <td class="r num">{{ r.todo }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% set todo_new = results|sum(attribute='todo') %}
+  {% if todo_new %}<p><a class="btn primary" href="{{ url_for('transactions', month='all', category=todo_category.id) }}">Classer les {{ todo_new }} nouvelle(s) ligne(s)</a></p>{% endif %}
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Derniers imports</h2>
+  {% if batches %}
+  <div class="tbl"><table>
+    <thead><tr><th>Date</th><th>Fichier</th><th>Format</th><th class="r">Ajoutées</th><th class="r">Doublons</th></tr></thead>
+    <tbody>{% for b in batches %}
+      <tr><td class="num">{{ b.imported_at.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ b.filename }}</td>
+        <td><span class="src">{{ 'VISA' if b.source == 'visa_pdf' else 'ING' }}</span></td>
+        <td class="r num">{{ b.added }}</td><td class="r num">{{ b.skipped }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Aucun import pour l'instant.</p>{% endif %}
+</section>
+
+<script>
+const drop = document.getElementById("drop"), input = document.getElementById("files");
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => { input.files = ev.dataTransfer.files; drop.submit(); });
+</script>
+{% endblock %}

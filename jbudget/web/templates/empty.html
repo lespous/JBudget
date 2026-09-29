@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Bienvenue{% endblock %}
+{% block content %}
+<div class="panel">
+  <h1>Aucune transaction pour l'instant</h1>
+  <p>Importe ton export CSV ING et ton relevé VISA en PDF pour commencer.</p>
+  <p><a class="btn primary" href="{{ url_for('import_page') }}">Importer des fichiers</a></p>
+</div>
+{% endblock %}

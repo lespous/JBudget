@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Règles{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>Règles de classement</h1>
+  <div class="spacer"></div>
+  <form method="post" action="{{ url_for('rules_reapply') }}"><button>Réappliquer toutes les règles</button></form>
+</div>
+
+<section class="panel">
+  <h2>{% if edit %}Modifier la règle #{{ edit.id }}{% else %}Nouvelle règle{% endif %}</h2>
+  <p class="muted small">La règle de plus haute priorité l'emporte ; à priorité égale, le motif le plus long. Les transactions corrigées à la main ne sont jamais reclassées.</p>
+  <form id="rule-form" class="rule-form" method="post" action="{{ url_for('rules_save') }}">
+    {% if edit %}<input type="hidden" name="id" value="{{ edit.id }}">{% endif %}
+    <label>Champ
+      <select name="field">{% for k, v in FIELDS.items() %}<option value="{{ k }}" {{ 'selected' if f.field == k }}>{{ v }}</option>{% endfor %}</select>
+    </label>
+    <label>Condition
+      <select name="match_type">{% for k, v in MATCH_TYPES.items() %}<option value="{{ k }}" {{ 'selected' if f.match_type == k }}>{{ v }}</option>{% endfor %}</select>
+    </label>
+    <label class="wide">Motif (majuscules et accents ignorés)
+      <input name="pattern" value="{{ f.pattern or '' }}" required autofocus>
+    </label>
+    <label>Sens
+      <select name="direction">{% for k, v in DIRECTIONS.items() %}<option value="{{ k }}" {{ 'selected' if (f.direction or '') == k }}>{{ v }}</option>{% endfor %}</select>
+    </label>
+    <label>Montant min (€)<input name="min" inputmode="decimal" value="{{ '%.2f'|format(f.min_cents / 100) if f.min_cents is not none }}"></label>
+    <label>Montant max (€)<input name="max" inputmode="decimal" value="{{ '%.2f'|format(f.max_cents / 100) if f.max_cents is not none }}"></label>
+    <label class="wide">Catégorie
+      <select name="category_id" required>
+        <option value="">Choisir…</option>
+        {% for g in groups %}<optgroup label="{{ g.name }}">
+          {% for c in g.categories %}<option value="{{ c.id }}" {{ 'selected' if f.category_id == c.id }}>{{ c.name }}</option>{% endfor %}
+        </optgroup>{% endfor %}
+      </select>
+    </label>
+    <label>Priorité<input name="priority" type="number" value="{{ f.priority }}"></label>
+    <label>État
+      <select name="enabled"><option value="on">Active</option><option value="off" {{ 'selected' if not f.enabled }}>Désactivée</option></select>
+    </label>
+    <div class="actions">
+      {% if edit %}<a class="btn" href="{{ url_for('rules') }}">Annuler</a>{% endif %}
+      <button class="primary" type="submit">Enregistrer et reclasser</button>
+    </div>
+  </form>
+  <div id="rule-test" class="test"
+       hx-get="{{ url_for('rules_test') }}" hx-include="#rule-form"
+       hx-trigger="load, input delay:300ms from:#rule-form, change from:#rule-form">
+    <span class="muted small">Test en cours…</span>
+  </div>
+</section>
+
+<div class="head">
+  <h2>{{ rules|length }} règle{{ 's' if rules|length > 1 }}</h2>
+  <div class="spacer"></div>
+  <form method="get"><input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="Chercher un motif, une catégorie…" aria-label="Chercher une règle"></form>
+</div>
+<div class="tbl">
+<table>
+  <thead><tr><th>#</th><th class="r">Prio</th><th>Condition</th><th>Sens</th><th>Catégorie</th><th>Origine</th><th class="r">Lignes</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rules %}
+    <tr class="{{ 'off' if not r.enabled }}">
+      <td class="num muted">{{ r.id }}</td>
+      <td class="r num">{{ r.priority }}</td>
+      <td>{{ FIELDS[r.field] }} {{ MATCH_TYPES[r.match_type] }} <span class="mono">« {{ r.pattern }} »</span>
+        {% if r.min_cents is not none or r.max_cents is not none %}<span class="muted small">· {{ r.min_cents|money(false) if r.min_cents is not none else '0' }} à {{ r.max_cents|money(false) if r.max_cents is not none else '∞' }}</span>{% endif %}</td>
+      <td class="small">{{ DIRECTIONS[r.direction or ''] }}</td>
+      <td>{{ r.category.label }}</td>
+      <td><span class="origin {{ r.origin }}">{{ {'seed': 'départ', 'learned': 'apprise', 'manual': 'manuelle'}[r.origin] }}</span></td>
+      <td class="r num"><a href="{{ url_for('transactions', month='all', rule=r.id) }}">{{ hits.get(r.id, 0) }}</a></td>
+      <td class="actions">
+        <a class="btn" href="{{ url_for('rules', edit=r.id) }}">Modifier</a>
+        <form method="post" action="{{ url_for('rules_toggle', rule_id=r.id) }}"><button>{{ 'Désactiver' if r.enabled else 'Activer' }}</button></form>
+        <form method="post" action="{{ url_for('rules_delete', rule_id=r.id) }}"><button class="danger">Supprimer</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

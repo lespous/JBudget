@@ -1,0 +1,17 @@
+<form class="pop" method="post" action="{{ url_for('recat_save', tx_id=tx.id) }}">
+  <input type="hidden" name="category_id" value="{{ cat.id }}">
+  <input type="hidden" name="next" value="{{ next or '' }}">
+  <strong>{{ tx.merchant or tx.description[:60] }} → {{ cat.label }}</strong>
+  <label><input type="radio" name="scope" value="one" {{ 'checked' if not same }}>
+    <span>Seulement cette transaction<br><span class="muted small">L'outil s'en souviendra pour les prochains imports de ce marchand si aucune règle ne s'applique.</span></span></label>
+  {% if tx.merchant %}
+  <label><input type="radio" name="scope" value="merchant" {{ 'checked' if same }}>
+    <span>Créer une règle : marchand = <span class="mono">{{ tx.merchant }}</span> ({{ 'entrées' if tx.amount_cents > 0 else 'sorties' }})<br>
+    <span class="muted small">{% if same %}{{ changing }} des {{ same }} autre(s) transaction(s) de ce marchand changeront de catégorie.{% else %}Aucune autre transaction de ce marchand pour l'instant ; la règle servira aux prochains imports.{% endif %}</span></span></label>
+  {% endif %}
+  <div class="btns">
+    <a class="btn" href="{{ url_for('rules', field='merchant', match_type='contains', pattern=tx.merchant, category_id=cat.id, direction='in' if tx.amount_cents > 0 else 'out') }}">Règle personnalisée…</a>
+    <button type="button" onclick="cancelRecat({{ tx.id }})">Annuler</button>
+    <button class="primary" type="submit">Enregistrer</button>
+  </div>
+</form>

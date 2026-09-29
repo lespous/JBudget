@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ month|month_label }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='chart.umd.min.js') }}" defer></script>{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>{{ month|month_label }}</h1>
+  <div class="spacer"></div>
+  {% if prev %}<a class="btn" href="{{ url_for('dashboard', month=prev) }}">◂ {{ prev|month_label }}</a>{% endif %}
+  <select aria-label="Mois" onchange="location.href='?month='+this.value">
+    {% for mm in months %}<option value="{{ mm }}" {{ 'selected' if mm == month }}>{{ mm|month_label }}</option>{% endfor %}
+  </select>
+  {% if next_ %}<a class="btn" href="{{ url_for('dashboard', month=next_) }}">{{ next_|month_label }} ▸</a>{% endif %}
+</div>
+
+<div class="kpis">
+  <div class="kpi"><small>Rentrées</small><b class="pos">{{ m.income|money }}</b></div>
+  <div class="kpi"><small>Dépenses</small><b class="neg">{{ m.expenses|money(false) }}</b></div>
+  <div class="kpi"><small>Solde avant épargne</small><b class="{{ 'pos' if m.balance >= 0 else 'neg' }}">{{ m.balance|money }}</b></div>
+  <div class="kpi"><small>Épargne nette{{ ' (retrait)' if m.savings < 0 }}</small><b>{{ m.savings|money(false) }}</b></div>
+  {% if m.todo_count %}
+  <a class="kpi warn" href="{{ url_for('transactions', month=month, category=todo_category.id) }}">
+    <small>À classer · {{ m.todo_count }} ligne{{ 's' if m.todo_count > 1 }}</small><b>{{ m.todo|money(false) }}</b>
+  </a>
+  {% endif %}
+</div>
+
+<div class="grid2">
+  <section class="panel">
+    <h2>Dépenses par groupe</h2>
+    <p class="muted small">Montants nets : les remboursements (mutuelle, retours) sont déduits. Clique sur un groupe pour voir le détail. Le trait vertical marque le budget.</p>
+    <div class="groups">
+      {% for g in m.groups %}
+      <details>
+        <summary>
+          <span>{{ g.group.name }}</span>
+          <span class="track">
+            <i class="{{ 'over' if g.budget and g.spent > g.budget }}" style="width: {{ [g.spent / top * 100, 0]|max }}%"></i>
+            {% if g.budget %}<span class="budget" style="left: {{ g.budget / top * 100 }}%" title="Budget {{ g.budget|money(false) }}"></span>{% endif %}
+          </span>
+          <span class="num" style="text-align:right">{{ g.spent|money(false) }}</span>
+        </summary>
+        {% for cat, spent in g.cats.items() %}
+        <div class="sub">
+          <a href="{{ url_for('transactions', month=month, category=cat.id) }}">{{ cat.name }}</a>
+          <span class="track"><i style="width: {{ [spent / top * 100, 0]|max }}%"></i>
+            {% if cat.budget_cents %}<span class="budget" style="left: {{ cat.budget_cents / top * 100 }}%"></span>{% endif %}</span>
+          <span class="num" style="text-align:right">{{ spent|money(false) }}{% if cat.budget_cents %} <span class="muted">/ {{ cat.budget_cents|money(false) }}</span>{% endif %}</span>
+        </div>
+        {% endfor %}
+        <div class="sub"><a href="{{ url_for('transactions', month=month, group=g.group.id) }}">Toutes les transactions du groupe →</a></div>
+      </details>
+      {% else %}
+      <p class="muted">Aucune dépense classée ce mois-ci.</p>
+      {% endfor %}
+    </div>
+    {% if m.transfers %}<p class="muted small">Hors statistiques : remboursements de la carte VISA pour {{ m.transfers|money(false) }}. Le détail de ces achats vient du relevé VISA.</p>{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>12 derniers mois</h2>
+    <div class="chart-box"><canvas id="trend" aria-label="Rentrées, dépenses et épargne des 12 derniers mois"></canvas></div>
+  </section>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const css = getComputedStyle(document.documentElement);
+  const c = (v) => css.getPropertyValue(v).trim();
+  const series = {{ series|tojson }};
+  new Chart(document.getElementById("trend"), {
+    type: "bar",
+    data: {
+      labels: series.map(r => r.label),
+      datasets: [
+        { label: "Rentrées", data: series.map(r => r.income / 100), backgroundColor: c("--in") },
+        { label: "Dépenses", data: series.map(r => r.expenses / 100), backgroundColor: c("--out") },
+        { label: "Épargne", type: "line", data: series.map(r => r.savings / 100), borderColor: c("--accent"),
+          backgroundColor: c("--accent"), tension: .3, pointRadius: 3 },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: c("--muted") }, grid: { display: false } },
+        y: { ticks: { color: c("--muted"), callback: v => v.toLocaleString("fr-BE") + " €" }, grid: { color: c("--soft") } },
+      },
+      plugins: {
+        legend: { labels: { color: c("--ink") } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString("fr-BE", {minimumFractionDigits: 2})} €` } },
+      },
+      onClick: (_e, els) => { if (els.length) location.href = "?month=" + series[els[0].index].month; },
+    },
+  });
+});
+</script>
+{% endblock %}

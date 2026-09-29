@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>Transactions</h1>
+  {% if filter_cat %}<span class="chip on">{{ filter_cat.label }} <a href="{{ url_with(category='') }}" aria-label="Retirer le filtre">✕</a></span>{% endif %}
+  {% if filter_group %}<span class="chip on">{{ filter_group.name }} <a href="{{ url_with(group='') }}" aria-label="Retirer le filtre">✕</a></span>{% endif %}
+  <div class="spacer"></div>
+  <span class="muted">{{ rows|length }} ligne{{ 's' if rows|length > 1 }} · total <b class="num {{ 'neg' if total < 0 else 'pos' }}">{{ total|money }}</b></span>
+</div>
+
+<form class="filters" method="get">
+  <label>Mois
+    <select name="month" onchange="this.form.submit()">
+      <option value="all" {{ 'selected' if month == 'all' }}>Tous</option>
+      {% for mm in months %}<option value="{{ mm }}" {{ 'selected' if mm == month }}>{{ mm|month_label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Compte
+    <select name="account" onchange="this.form.submit()">
+      <option value="">Tous</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if request.args.get('account')|int == a.id }}>{{ a.short }} · {{ a.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Sens
+    <select name="dir" onchange="this.form.submit()">
+      <option value="">Entrées et sorties</option>
+      <option value="out" {{ 'selected' if request.args.get('dir') == 'out' }}>Sorties</option>
+      <option value="in" {{ 'selected' if request.args.get('dir') == 'in' }}>Entrées</option>
+    </select>
+  </label>
+  <label>Catégorie
+    <select name="category" onchange="this.form.submit()">
+      <option value="">Toutes</option>
+      {% for g in groups %}<optgroup label="{{ g.name }}">
+        {% for c in g.categories %}<option value="{{ c.id }}" {{ 'selected' if filter_cat and filter_cat.id == c.id }}>{{ c.name }}</option>{% endfor %}
+      </optgroup>{% endfor %}
+    </select>
+  </label>
+  {% if request.args.get('group') %}<input type="hidden" name="group" value="{{ request.args.get('group') }}">{% endif %}
+  <label>Recherche
+    <input type="search" name="q" value="{{ request.args.get('q', '') }}" placeholder="marchand, libellé…">
+  </label>
+  <button type="submit">Filtrer</button>
+  <a class="chip warn" href="{{ url_with(category=todo_category.id) }}">Seulement « À classer »</a>
+</form>
+
+<div class="tbl">
+<table>
+  <thead><tr><th>Date</th><th>Compte</th><th>Marchand / libellé</th><th>Catégorie</th><th>Classé par</th><th class="r">Montant</th></tr></thead>
+  <tbody>
+  {% for t in rows %}
+    <tr class="{{ 'todo' if t.category_id == todo_category.id }}">
+      <td class="num">{{ t.date.strftime('%d/%m/%y') }}</td>
+      <td><span class="src">{{ t.account.short }}</span></td>
+      <td>
+        <div class="merchant">{{ t.merchant or '—' }}</div>
+        <div class="desc" title="{{ t.description }}{% if t.message %} — {{ t.message }}{% endif %}">{{ t.description }}</div>
+      </td>
+      <td>
+        <select class="cat {{ 'todo' if t.category_id == todo_category.id }}" name="category_id" aria-label="Catégorie"
+                data-orig="{{ t.category_id }}"
+                hx-get="{{ url_for('recat_form', tx_id=t.id) }}" hx-trigger="change" hx-target="#recat-{{ t.id }}">
+          {% for g in groups %}<optgroup label="{{ g.name }}">
+            {% for c in g.categories %}<option value="{{ c.id }}" {{ 'selected' if c.id == t.category_id }}>{{ c.name }}</option>{% endfor %}
+          </optgroup>{% endfor %}
+        </select>
+      </td>
+      <td class="how">
+        {% if t.source == 'rule' and t.rule_id %}<a href="{{ url_for('rules', edit=t.rule_id) }}">règle #{{ t.rule_id }}</a>
+        {% elif t.locked %}
+          <form class="inline" method="post" action="{{ url_for('unlock', tx_id=t.id) }}">
+            manuel <button class="linkish" title="Retirer la correction et reclasser automatiquement">déverrouiller</button>
+          </form>
+        {% else %}{{ SOURCES[t.source] }}{% endif %}
+      </td>
+      <td class="r num {{ 'neg' if t.amount_cents < 0 else 'pos' }}">{{ t.amount_cents|money }}</td>
+    </tr>
+    <tr class="recat"><td colspan="6" id="recat-{{ t.id }}"></td></tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">Aucune transaction ne correspond à ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<script>
+function cancelRecat(id) {
+  const cell = document.getElementById("recat-" + id);
+  const select = cell.closest("tr").previousElementSibling.querySelector("select.cat");
+  select.value = select.dataset.orig;
+  cell.innerHTML = "";
+}
+</script>
+{% endblock %}
